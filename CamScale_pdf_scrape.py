@@ -17,7 +17,7 @@ Does assume access to the pdfs and you save them.
 The current implementation is hardcoded to the current pdf structure, but does some simple checks. 
 
 
-    Camscale daily results are saved in a filename format: e.g. "PVT-*.pdf"
+    Camscale daily results are saved in a filename format: e.g. "PVT*.pdf"
     I copy the pdfs to a local directory. 
 
 
@@ -36,6 +36,7 @@ import os
 import re
 import glob
 import pandas as pd
+import numpy as np
 import datetime
 
 import pdftotext
@@ -276,6 +277,57 @@ def parse_PVT_report(oPDF, verbose=0):
     return(myList)
 
 
+def process_calibration_intervals(df, verbose=0):
+    """
+    
+    
+
+    Parameters
+    ----------
+    df : pandas dataframe
+        Output from Generate_dataframe_for_CamScale_analysis
+    verbose : TYPE, optional
+        DESCRIPTION. The default is 0.
+
+    Returns
+    -------
+    a dataframe with an additional column labeled calibration reference. 
+    All position verification tests will then be associated with the last
+    calibration datetime. 
+
+    """
+    calEvents = df.MeasureType == 'PostCalibration'
+    cal_list = df[calEvents].datetime.to_list()
+    cal_list.sort()
+    assert len(cal_list) >= 1, "no calibration events found!"
+    
+    #put in bounds on datetime
+    lowerBoundDate = '1900-01-01 00:00:00'
+    upperBoundDate = '3000-12-31 23:59:59'
+    cal_list.insert(0,lowerBoundDate)
+    cal_list.append(upperBoundDate)
+    
+    df = df.assign(currentCalDateTime = cal_list[0])
+    for i in np.arange(1,(len(cal_list)-1)):
+        startdate = cal_list[i]
+        enddate = cal_list[i+1]
+        index = (df.datetime > startdate)*(df.datetime <= enddate)
+        if(np.sum(index) > 0):
+            df.currentCalDateTime[index] = startdate
+        
+    #now set the postcalibration currentCalDateTime to themselves.
+
+
+    for i in cal_list:
+        index = (df.MeasureType == 'PostCalibration')*(df.currentCalDateTime == i)
+        df.currentCalDateTime[index] = df.datetime[index]
+    
+    
+    return(df)
+    
+    
+
+
 def Generate_dataframe_for_CamScale_analysis(directory, verbose=0):
     """Example usage:
         myDir = r'H:/src/Bravos_camscale'
@@ -295,6 +347,10 @@ def Generate_dataframe_for_CamScale_analysis(directory, verbose=0):
         myList.extend(m)
     
     df = pd.DataFrame(myList)
+    #just in case the dataframe was not chronological
+    df = df.sort_values(by='datetime', ascending=True)
+    
+    df = process_calibration_intervals(df)
     return(df)
     
 
