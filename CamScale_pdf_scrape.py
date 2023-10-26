@@ -316,12 +316,14 @@ def process_calibration_intervals(df, verbose=0):
             df.currentCalDateTime[index] = startdate
         
     #now set the postcalibration currentCalDateTime to themselves.
-
-
     for i in cal_list:
         index = (df.MeasureType == 'PostCalibration')*(df.currentCalDateTime == i)
         df.currentCalDateTime[index] = df.datetime[index]
     
+    
+    #now add a column showing the difference in time between current measurement and calibration date
+    df['days_from_cal'] = pd.to_datetime(df['datetime']) - pd.to_datetime(df['currentCalDateTime'])
+    df['days_from_cal'] = df['days_from_cal'].dt.total_seconds()/(60.*60.*24.)
     
     return(df)
     
