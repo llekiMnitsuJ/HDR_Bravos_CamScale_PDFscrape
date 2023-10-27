@@ -40,6 +40,7 @@ import numpy as np
 import datetime
 
 import pdftotext
+import matplotlib.pyplot as plt
 
 
 def convertPDFtoText(filename, verbose=0):
@@ -328,7 +329,117 @@ def process_calibration_intervals(df, verbose=0):
     return(df)
     
     
+def separate_calibrations(df):
+    """
+    
+    Generate plots for a given calibration to observe trends in the reported positioning. 
+    
 
+    Parameters
+    ----------
+    df : pandas dataframe
+        requires the following columns:
+            
+            currentCalDateTime,
+            days_from_cal, 
+            MeasureType,
+            DummyDeviationAt90cm_cm, DummyDeviationAt120cm_cm. DummyDeviationAt150cm_cm
+            SourceDeviationAt90cm_cm, SourceDeviationAt120cm_cm, SourceDeviationAt150cm_cm
+
+    Returns
+    -------
+    None.
+
+    """
+    index = (df.MeasureType == 'PostCalibration')|(df.MeasureType == 'Verification')
+    
+    df1 = df[index]
+    
+    uniq_cals = df1.currentCalDateTime.unique()
+    
+    myMap = {}
+    for i in uniq_cals:
+        index = df1.currentCalDateTime == i
+        dftemp = df1[index]
+        myMap[i] = dftemp
+            
+    return(myMap)
+    
+
+    
+def plot_dummy_src_calibration_trend(df, label='', FigAxs=''):
+    
+    def set_lims(ax, title, ylim):
+        
+        ax.set_title(title, loc='left')
+        ax.set_ylim(ylim)
+        
+        return
+
+
+    dummymark='o'
+    srcmark = 'o'
+    
+    #xlims = [0, ]
+    dummy_ylims = [-0.12, 0.12]
+    src_ylims = [-0.12, 0.12]
+
+    
+    if(FigAxs == ''):
+        fig,axs = plt.subplots(3,2, layout='constrained')
+        
+        fig.suptitle("Position Verification Test Trends for a given calibration", fontsize=16)
+
+        
+        axs[0,0].plot(df.days_from_cal, df.DummyDeviationAt90cm_cm,   label=label, marker=dummymark)
+        set_lims(axs[0,0], 'dummy90cm', dummy_ylims)
+    
+        axs[1,0].plot(df.days_from_cal, df.DummyDeviationAt120cm_cm,  label=label, marker=dummymark)
+        set_lims(axs[1,0], 'dummy120cm', dummy_ylims)
+        
+        axs[2,0].plot(df.days_from_cal, df.DummyDeviationAt150cm_cm,  label=label, marker=dummymark)
+        set_lims(axs[2,0], 'dummy150cm', dummy_ylims)
+        
+        axs[0,1].plot(df.days_from_cal, df.SourceDeviationAt90cm_cm,  label=label, marker=srcmark)
+        set_lims(axs[0,1], 'source90cm', src_ylims)
+        
+        axs[1,1].plot(df.days_from_cal, df.SourceDeviationAt120cm_cm, label=label, marker=srcmark)
+        set_lims(axs[1,1], 'source120cm', src_ylims)
+        
+        axs[2,1].plot(df.days_from_cal, df.SourceDeviationAt150cm_cm, label=label, marker=srcmark)
+        set_lims(axs[2,1], 'source150cm', src_ylims)
+        
+        
+        
+        axs[2,0].set_xlabel('days from calibration')
+        axs[2,1].set_xlabel('days from calibration')
+        
+        axs[2,0].set_ylabel("deviation (cm)")
+        axs[1,0].set_ylabel("deviation (cm)")
+        axs[0,0].set_ylabel("deviation (cm)")
+        
+        axs[2,0].legend(bbox_to_anchor=(0,-0.5), loc="upper left")
+    else:
+        fig = FigAxs[0]
+        axs = FigAxs[1]
+        assert type(fig) is plt.Figure
+        assert type(axs) is np.ndarray
+        assert axs.shape == (3,2)
+        axs[0,0].plot(df.days_from_cal, df.DummyDeviationAt90cm_cm,   label=label, marker=dummymark)
+        axs[1,0].plot(df.days_from_cal, df.DummyDeviationAt120cm_cm,  label=label, marker=dummymark)                
+        axs[2,0].plot(df.days_from_cal, df.DummyDeviationAt150cm_cm,  label=label, marker=dummymark)                
+        axs[0,1].plot(df.days_from_cal, df.SourceDeviationAt90cm_cm,  label=label, marker=srcmark)        
+        axs[1,1].plot(df.days_from_cal, df.SourceDeviationAt120cm_cm, label=label, marker=srcmark)        
+        axs[2,1].plot(df.days_from_cal, df.SourceDeviationAt150cm_cm, label=label, marker=srcmark)
+        
+        axs[2,0].legend(bbox_to_anchor=(0,-0.5), loc="upper left")
+
+        
+    
+    return([fig, axs])
+    
+    
+    
 
 def Generate_dataframe_for_CamScale_analysis(directory, verbose=0):
     """Example usage:
@@ -356,4 +467,18 @@ def Generate_dataframe_for_CamScale_analysis(directory, verbose=0):
     return(df)
     
 
+def run_Examples():
+        myDir = r'H:/src/Bravos_camscale'
+        df = Generate_dataframe_for_CamScale_analysis(myDir)
+        myMap = separate_calibrations(df)
+                
+        #see the calibration dates
+        for i in myMap.keys():
+            print(i)
+        
+        [fig, axs] = plot_dummy_src_calibration_trend(myMap['2023-10-11 13:56:10'], label='2023-10-11 13:56:10')
+        [fig, axs] = plot_dummy_src_calibration_trend(myMap['2023-08-30 11:11:15'], label='2023-08-30 11:11:15',FigAxs=[fig,axs])
+        [fig, axs] = plot_dummy_src_calibration_trend(myMap['2023-08-07 15:06:56'], label='2023-08-07 15:06:56',FigAxs=[fig,axs])
+        return([df, fig,axs])
+        
 
